@@ -1,6 +1,4 @@
-Plaintext
 streamlit
 pandas
 numpy
-scipy
 requests
