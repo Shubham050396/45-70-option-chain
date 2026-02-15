@@ -7,33 +7,47 @@ from scipy.stats import norm
 from datetime import datetime
 import os
 import json
-
-
-# --- PATH CONFIGURATION ---
-BASE_PATH = os.getcwd() # This uses the current folder in the cloud environment
-TRADES_FILE = os.path.join(BASE_PATH, "paper_trades.json")
+from streamlit_gsheets import GSheetsConnection
 
 
 
 def save_data():
-    if not os.path.exists(BASE_PATH):
-        os.makedirs(BASE_PATH)
-    data = {
-        "paper_positions": st.session_state.paper_positions,
-        "trade_history": st.session_state.trade_history
-    }
-    with open(TRADES_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
+    try:
+        # 1. Establish connection
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # 2. Combine Active Positions and History for a full backup
+        all_data = st.session_state.paper_positions + st.session_state.trade_history
+        
+        if all_data:
+            df_to_save = pd.DataFrame(all_data)
+            # 3. Write to Google Sheets (using the URL from your Secrets)
+            conn.update(
+                spreadsheet=st.secrets["GSHEETS_URL"],
+                data=df_to_save
+            )
+            st.toast("✅ Data synced to Google Sheets!")
+        else:
+            st.info("No data to save yet.")
+    except Exception as e:
+        st.error(f"Google Sheets Error: {e}")
+        
 def load_data():
-    if os.path.exists(TRADES_FILE):
-        try:
-            with open(TRADES_FILE, "r") as f:
-                data = json.load(f)
-                st.session_state.paper_positions = data.get("paper_positions", [])
-                st.session_state.trade_history = data.get("trade_history", [])
-        except Exception as e:
-            st.error(f"Error loading saved trades: {e}")
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        # Read the existing data from the sheet
+        df = conn.read(spreadsheet=st.secrets["GSHEETS_URL"])
+        
+        if not df.empty:
+            # Filter rows back into positions and history
+            data_list = df.to_dict(orient='records')
+            st.session_state.paper_positions = [d for d in data_list if d.get('Status') == 'OPEN']
+            st.session_state.trade_history = [d for d in data_list if d.get('Status') == 'CLOSED']
+    except Exception:
+        # If sheet is empty or error occurs, start fresh
+        st.session_state.paper_positions = []
+        st.session_state.trade_history = []
+        
 
 
 # --- INITIALIZATION & SCRIP LOOKUP ---
@@ -697,4 +711,5 @@ def background_monitor():
         run_auto_scan_and_deploy(full_expiry_list, min_pop_filter, entry_dte_range, ltp_range_val)
     
     # --- CHANGE HERE: REMOVED st.rerun() ---
+
     # By removing it, the sidebar and other tabs will remain stable.
