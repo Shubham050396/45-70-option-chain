@@ -13,7 +13,7 @@ st.set_page_config(layout="wide")
 # --------------------------
 
 # --- PATH CONFIGURATION ---
-BASE_PATH = os.getcwd() # This uses the current folder in the cloud environment
+BASE_PATH = os.getcwd() 
 TRADES_FILE = os.path.join(BASE_PATH, "paper_trades.json")
 
 # Change this:
@@ -706,4 +706,5 @@ def background_monitor():
         run_auto_scan_and_deploy(full_expiry_list, min_pop_filter, entry_dte_range, ltp_range_val)
     
     # --- CHANGE HERE: REMOVED st.rerun() ---
+
     # By removing it, the sidebar and other tabs will remain stable.
