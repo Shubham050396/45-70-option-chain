@@ -3,3 +3,5 @@ pandas
 numpy
 scipy
 requests
+st-gsheets-connection
+
