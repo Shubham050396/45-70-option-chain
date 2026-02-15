@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -8,29 +7,13 @@ from datetime import datetime
 import os
 import json
 
-# --- Wide line ---
+# --- Page Config ---
 st.set_page_config(layout="wide") 
-# --------------------------
 
 # --- PATH CONFIGURATION ---
+# This ensures the app works on the Streamlit server instead of your local D: drive
 BASE_PATH = os.getcwd() 
 TRADES_FILE = os.path.join(BASE_PATH, "paper_trades.json")
-
-# Change this:
-def call_dhan(endpoint, payload):
-    headers = {
-        'access-token': config.ACCESS_TOKEN, 
-        'client-id': str(config.CLIENT_ID), 
-        'Content-Type': 'application/json'
-    }
-
-# To this:
-def call_dhan(endpoint, payload):
-    headers = {
-        'access-token': st.secrets["ACCESS_TOKEN"], 
-        'client-id': str(st.secrets["CLIENT_ID"]), 
-        'Content-Type': 'application/json'
-    }
 
 def save_data():
     if not os.path.exists(BASE_PATH):
@@ -52,6 +35,46 @@ def load_data():
         except Exception as e:
             st.error(f"Error loading saved trades: {e}")
 
+# Initialize Session State
+if 'paper_positions' not in st.session_state:
+    st.session_state.paper_positions = []
+if 'trade_history' not in st.session_state:
+    st.session_state.trade_history = []
+if 'scanning_active' not in st.session_state:
+    st.session_state.scanning_active = False
+
+load_data()
+
+# --- DHAN API CALL ---
+def call_dhan(endpoint, payload):
+    # This version securely uses the Secrets you saved in Step 2
+    try:
+        headers = {
+            'access-token': st.secrets["ACCESS_TOKEN"], 
+            'client-id': str(st.secrets["CLIENT_ID"]), 
+            'Content-Type': 'application/json'
+        }
+        url = f"https://api.dhan.co/{endpoint}"
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
+    except Exception as e:
+        st.error(f"Dhan API Error: {e}")
+        return {}
+
+# --- APP UI ---
+st.title("Dhan Live Option Chain")
+
+# 1. Get Expiry List
+expiry_res = call_dhan("optionchain/expirylist", {"UnderlyingScrip": 13, "UnderlyingSeg": "IDX_I"})
+
+if expiry_res.get('status') == 'success':
+    expiries = expiry_res.get('data', [])
+    selected_expiry = st.selectbox("Select Expiry", expiries)
+    st.success(f"Connected to Dhan! Current Expiry: {selected_expiry}")
+    
+    # You can now add the rest of your calculation logic here
+else:
+    st.error("Could not fetch data. Check your Secrets or Dhan API status.")
 
 # --- INITIALIZATION & SCRIP LOOKUP ---
 @st.cache_data(ttl=3600)
@@ -708,3 +731,4 @@ def background_monitor():
     # --- CHANGE HERE: REMOVED st.rerun() ---
 
     # By removing it, the sidebar and other tabs will remain stable.
+
