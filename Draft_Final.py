@@ -11,26 +11,26 @@ from streamlit_gsheets import GSheetsConnection
 
 
 
+from streamlit_gsheets import GSheetsConnection
+
 def save_data():
     try:
-        # 1. Establish connection
+        # Connect to your Google Sheet using the URL in Secrets
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # 2. Combine Active Positions and History for a full backup
+        # Merge active and closed trades for a full sync
         all_data = st.session_state.paper_positions + st.session_state.trade_history
         
         if all_data:
             df_to_save = pd.DataFrame(all_data)
-            # 3. Write to Google Sheets (using the URL from your Secrets)
+            # This pushes the data to your linked workbook
             conn.update(
                 spreadsheet=st.secrets["GSHEETS_URL"],
                 data=df_to_save
             )
-            st.toast("✅ Data synced to Google Sheets!")
-        else:
-            st.info("No data to save yet.")
+            st.toast("✅ Google Sheet Updated!")
     except Exception as e:
-        st.error(f"Google Sheets Error: {e}")
+        st.error(f"Sync Failed: {e}")
         
 def load_data():
     try:
@@ -526,7 +526,8 @@ with tab3:
             for i, pos in enumerate(st.session_state.paper_positions):
                 if i in selected_indices:
                     # Capture ACTUAL data at the moment of exit
-                    exit_price = fetch_row_ltp(pos) # Gets current live price
+                    lookup_key = f"{float(pos['Strike'])}_{pos['Type']}"
+                    exit_price = all_current_prices.get(pos['Expiry'], {}).get(lookup_key, pos['Entry_Price'])
                     pos['Exit_price'] = exit_price
                     pos['Exit_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     pos['Status'] = "CLOSED"
@@ -713,3 +714,4 @@ def background_monitor():
     # --- CHANGE HERE: REMOVED st.rerun() ---
 
     # By removing it, the sidebar and other tabs will remain stable.
+
