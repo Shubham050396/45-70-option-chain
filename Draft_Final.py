@@ -715,3 +715,4 @@ def background_monitor():
 
     # By removing it, the sidebar and other tabs will remain stable.
 
+
